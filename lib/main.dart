@@ -11,12 +11,12 @@ Future<void> main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
     print('Main: Flutter initialized');
-    
+
     // This is intentionally not awaited to avoid blocking the UI thread.
     // Any errors during background service initialization will be handled
-    // within the function itself and will not crash the app.
+    // within the function itself and will not crash the app. //ignore
     _initializeBackgroundServiceAsync();
-    
+
     print('Main: Starting app...');
     runApp(const MyApp());
   } catch (e, stackTrace) {
@@ -47,7 +47,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     print('MyApp: Building MaterialApp');
-    
+
     return MaterialApp(
       title: AppConstants.appTitle,
       debugShowCheckedModeBanner: false,
@@ -96,24 +96,26 @@ class _StartupScreenState extends State<StartupScreen> {
   Future<void> _checkStartupConditions() async {
     try {
       print('StartupScreen: Checking startup conditions...');
-      
+
       // Add a small delay to show the splash screen briefly
       await Future.delayed(const Duration(milliseconds: 1500));
-      
+
       // Check for stored credentials
       final prefs = await SharedPreferences.getInstance();
       final storedToken = prefs.getString('token');
       final storedDeploymentCode = prefs.getString('deploymentCode');
-      
+
       if (storedToken != null && storedDeploymentCode != null) {
-        print('StartupScreen: Found stored credentials, checking permissions...');
-        
+        print(
+            'StartupScreen: Found stored credentials, checking permissions...');
+
         // Check if critical permissions are still granted
-        final hasPermissions = await _permissionService.hasAllCriticalPermissions();
-        
+        final hasPermissions =
+            await _permissionService.hasAllCriticalPermissions();
+
         if (hasPermissions) {
           print('StartupScreen: Permissions valid, navigating to dashboard...');
-          
+
           if (mounted) {
             Navigator.pushReplacement(
               context,
@@ -127,8 +129,9 @@ class _StartupScreenState extends State<StartupScreen> {
           }
           return;
         } else {
-          print('StartupScreen: Critical permissions missing, going to login...');
-          
+          print(
+              'StartupScreen: Critical permissions missing, going to login...');
+
           if (mounted) {
             Navigator.pushReplacement(
               context,
@@ -139,13 +142,14 @@ class _StartupScreenState extends State<StartupScreen> {
         }
       } else {
         print('StartupScreen: No stored credentials, checking permissions...');
-        
+
         // No stored credentials, check if permissions are granted
-        final hasPermissions = await _permissionService.hasAllCriticalPermissions();
-        
+        final hasPermissions =
+            await _permissionService.hasAllCriticalPermissions();
+
         if (hasPermissions) {
           print('StartupScreen: Permissions granted, going to login...');
-          
+
           if (mounted) {
             Navigator.pushReplacement(
               context,
@@ -153,8 +157,9 @@ class _StartupScreenState extends State<StartupScreen> {
             );
           }
         } else {
-          print('StartupScreen: Permissions needed, going to permission screen...');
-          
+          print(
+              'StartupScreen: Permissions needed, going to permission screen...');
+
           if (mounted) {
             Navigator.pushReplacement(
               context,
@@ -165,7 +170,7 @@ class _StartupScreenState extends State<StartupScreen> {
       }
     } catch (e) {
       print('StartupScreen: Error checking startup conditions: $e');
-      
+
       // On error, default to permission screen
       if (mounted) {
         Navigator.pushReplacement(
@@ -200,7 +205,8 @@ class _StartupScreenState extends State<StartupScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.primaryRed.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.primaryRed.withOpacity(0.3)),
+                  border:
+                      Border.all(color: AppColors.primaryRed.withOpacity(0.3)),
                 ),
                 child: Image.asset(
                   'assets/images/pnp_logo.png',
@@ -223,9 +229,9 @@ class _StartupScreenState extends State<StartupScreen> {
                   },
                 ),
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // App title
               Text(
                 AppConstants.appTitle.toUpperCase(),
@@ -237,12 +243,13 @@ class _StartupScreenState extends State<StartupScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const SizedBox(height: 12),
-              
+
               // App motto
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 decoration: BoxDecoration(
                   color: AppColors.primaryGreen,
                   borderRadius: BorderRadius.circular(20),
@@ -258,16 +265,16 @@ class _StartupScreenState extends State<StartupScreen> {
                   textAlign: TextAlign.center,
                 ),
               ),
-              
+
               const SizedBox(height: 48),
-              
+
               // Loading indicator
               const CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(AppColors.tealAccent),
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               Text(
                 'Initializing Security Module...',
                 style: TextStyle(
@@ -276,9 +283,9 @@ class _StartupScreenState extends State<StartupScreen> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              
+
               const SizedBox(height: 8),
-              
+
               Text(
                 'Checking credentials and permissions',
                 style: TextStyle(
