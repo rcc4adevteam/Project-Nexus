@@ -10,6 +10,7 @@ import '../services/watchdog_service.dart';
 import '../utils/constants.dart';
 import 'dashboard_screen.dart';
 import 'location_screen.dart';
+import 'qr_view_screen.dart';
 
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});
@@ -56,8 +57,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _deploymentCodeController = TextEditingController();
   final _locationService = LocationService();
   final _watchdogService = WatchdogService();
-  
-  bool _isDeploymentCodeVisible = false;
+
+  bool _isTokenLocked = false; // controls locking state
   bool _isLoading = false;
   bool _isLocationChecking = false;
   String _appVersion = '';
@@ -82,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
   // Initialize screen with stored credentials check
   Future<void> _initializeScreen() async {
     await _getAppVersion();
-    await _loadStoredCredentials();
+    await _loadStoredCredentials(); // 🔒 will also load lock state
     await _initializeWatchdog();
   }
 
@@ -110,7 +111,20 @@ class _LoginScreenState extends State<LoginScreen> {
       final storedToken = prefs.getString('token');
       final storedDeploymentCode = prefs.getString('deploymentCode');
       final storedQRCode = prefs.getString('qr_code'); // Load stored QR code
-      
+      final storedLockState =
+          prefs.getBool('isTokenLocked') ?? false; // 🔒 load
+
+      if (mounted) {
+        setState(() {
+          _isTokenLocked = storedLockState; // 🔒 restore lock state
+        });
+      }
+      if (mounted) {
+        setState(() {
+          _isTokenLocked = storedLockState; // 🔒 restore lock state
+        });
+      }
+
       if (storedToken != null && storedDeploymentCode != null) {
         print('LoginScreen: Found stored credentials');
         if (mounted) {
@@ -123,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else {
         print('LoginScreen: No stored credentials found');
-        
+
         // Even if no credentials, check if we have a stored QR code
         if (storedQRCode != null) {
           print('LoginScreen: Found stored QR code');
@@ -145,13 +159,14 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await _watchdogService.initialize();
       await _watchdogService.markAppAsAlive();
-      
+
       // Check if app was previously dead
       final wasAppDead = await _watchdogService.wasAppDead();
       if (wasAppDead && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('App monitoring was interrupted. Please login to resume tracking.'),
+            content: Text(
+                'App monitoring was interrupted. Please login to resume tracking.'),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 5),
           ),
@@ -171,12 +186,13 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (scannedCode != null && mounted) {
-        print('LoginScreen: QR code scanned: ${scannedCode.substring(0, 10)}...');
+        print(
+            'LoginScreen: QR code scanned: ${scannedCode.substring(0, 10)}...');
         setState(() {
           _tokenController.text = scannedCode;
           _hasStoredQRCode = false; // Mark as newly scanned
         });
-        
+
         // Save the new QR code immediately
         await _saveQRCode(scannedCode);
       }
@@ -199,10 +215,10 @@ class _LoginScreenState extends State<LoginScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('qr_code', qrCode);
       print('LoginScreen: QR code saved successfully');
-      
+
       if (mounted) {
         setState(() => _hasStoredQRCode = true);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('QR code saved for future use'),
@@ -221,12 +237,12 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final storedQRCode = prefs.getString('qr_code');
-      
+
       if (storedQRCode != null && mounted) {
         setState(() {
           _tokenController.text = storedQRCode;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Stored QR code loaded'),
@@ -253,13 +269,13 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('qr_code');
-      
+
       if (mounted) {
         setState(() {
           _tokenController.clear();
           _hasStoredQRCode = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Stored QR code cleared'),
@@ -275,10 +291,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<bool> _checkLocationRequirements() async {
     if (!mounted) return false;
-    
+
     print('LoginScreen: Checking location requirements...');
     setState(() => _isLocationChecking = true);
-    
+
     try {
       final hasAccess = await _locationService.checkLocationRequirements();
       print('LoginScreen: Location access: $hasAccess');
@@ -297,7 +313,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _showLocationRequirementDialog() {
     if (!mounted) return;
-    
+
     print('LoginScreen: Showing location requirement dialog');
     showDialog(
       context: context,
@@ -353,7 +369,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _navigateToLocationSetup() {
     if (!mounted) return;
-    
+
     print('LoginScreen: Navigating to location setup');
     Navigator.push(
       context,
@@ -363,14 +379,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _startBackgroundServiceAfterLogin() async {
     try {
-      print('LoginScreen: Starting background service after successful login...');
-      
+      print(
+          'LoginScreen: Starting background service after successful login...');
+
       // Start background service with a small delay to ensure app is stable
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       final started = await startBackgroundServiceSafely();
       print('LoginScreen: Background service start result: $started');
-      
+
       if (started && mounted) {
         // Show a brief success message
         ScaffoldMessenger.of(context).showSnackBar(
@@ -389,7 +406,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (!mounted || !_formKey.currentState!.validate()) return;
-    
+
     print('LoginScreen: Starting login process...');
     setState(() => _isLoading = true);
 
@@ -413,7 +430,8 @@ class _LoginScreenState extends State<LoginScreen> {
         _tokenController.text.trim(),
         _deploymentCodeController.text.trim(),
       );
-      print('LoginScreen: API response received - success: ${response.success}');
+      print(
+          'LoginScreen: API response received - success: ${response.success}');
 
       if (!mounted) {
         print('LoginScreen: Widget not mounted after API call');
@@ -422,34 +440,41 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.success) {
         print('LoginScreen: Login successful, saving credentials...');
-        
+
         // Step 3: Save credentials and QR code
         try {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('token', _tokenController.text.trim());
-          await prefs.setString('deploymentCode', _deploymentCodeController.text.trim());
-          
+          await prefs.setString(
+              'deploymentCode', _deploymentCodeController.text.trim());
+
           // Save QR code if it's not already stored or if it's new
           if (!_hasStoredQRCode || _tokenController.text.trim().isNotEmpty) {
             await prefs.setString('qr_code', _tokenController.text.trim());
             print('LoginScreen: QR code saved with credentials');
           }
-          
+
           print('LoginScreen: Credentials saved successfully');
-          
+
+          // 🔒 Step 3.5: Lock the token field after successful login
+          setState(() {
+            _isTokenLocked = true;
+          });
+          print('LoginScreen: Token field locked after login');
+
           // Step 4: Start background service and watchdog
           _startBackgroundServiceAfterLogin(); // Don't await - let it run in background
           _watchdogService.startWatchdog(); // Start monitoring
-          
+
           // Step 5: Navigate to dashboard
           print('LoginScreen: Navigating to dashboard...');
-          
+
           // Add a small delay to ensure everything is saved
           await Future.delayed(const Duration(milliseconds: 200));
-          
+
           if (mounted) {
             print('LoginScreen: About to navigate to DashboardScreen');
-            
+
             // Use pushAndRemoveUntil to prevent back navigation
             Navigator.pushAndRemoveUntil(
               context,
@@ -464,7 +489,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               (route) => false, // Remove all previous routes
             );
-            
+
             print('LoginScreen: Navigation completed');
           } else {
             print('LoginScreen: Widget not mounted, cannot navigate');
@@ -514,7 +539,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     print('LoginScreen: Building UI');
-    
+
     // Disable back button navigation
     return PopScope(
       canPop: false,
@@ -543,13 +568,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                  
+
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: AppColors.primaryRed.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.primaryRed.withOpacity(0.3)),
+                      border: Border.all(
+                          color: AppColors.primaryRed.withOpacity(0.3)),
                     ),
                     child: Column(
                       children: [
@@ -587,7 +613,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 6),
                           decoration: BoxDecoration(
                             color: AppColors.primaryGreen,
                             borderRadius: BorderRadius.circular(20),
@@ -606,60 +633,53 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
                   Text(
                     'Secure Access Required',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primaryRed,
-                    ),
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryRed,
+                        ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _hasStoredCredentials 
-                      ? 'Credentials loaded from previous session'
-                      : 'Enter your authentication credentials',
+                    _hasStoredCredentials
+                        ? 'Credentials loaded from previous session'
+                        : 'Enter your authentication credentials',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: _hasStoredCredentials ? Colors.green[400] : Colors.grey[400],
-                    ),
+                          color: _hasStoredCredentials
+                              ? Colors.green[400]
+                              : Colors.grey[400],
+                        ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
 
                   TextFormField(
                     controller: _tokenController,
+                    readOnly: _tokenController
+                        .text.isNotEmpty, // 🔒 auto-lock if token exists
                     decoration: InputDecoration(
                       labelText: 'Token',
                       hintText: 'Input your token here',
-                      prefixIcon: Icon(Icons.vpn_key, color: AppColors.primaryRed),
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_hasStoredQRCode) ...[
-                            IconButton(
-                              icon: Icon(Icons.history, color: Colors.blue),
-                              onPressed: _loadStoredQRCode,
-                              tooltip: 'Load stored QR code',
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.clear, color: Colors.orange),
-                              onPressed: _clearStoredQRCode,
-                              tooltip: 'Clear stored QR code',
-                            ),
-                          ],
-                          IconButton(
-                            icon: Icon(Icons.qr_code_scanner, color: AppColors.primaryRed),
-                            onPressed: _scanQRCode,
-                            tooltip: 'Scan QR code',
-                          ),
-                        ],
+                      prefixIcon:
+                          Icon(Icons.vpn_key, color: AppColors.primaryRed),
+                      suffixIcon: IconButton(
+                        icon: Icon(Icons.qr_code_scanner,
+                            color: AppColors.primaryRed),
+                        onPressed: _tokenController.text.isEmpty
+                            ? _scanQRCode
+                            : null, // disabled if locked
+                        tooltip: 'Scan QR code',
                       ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: AppColors.primaryRed, width: 2),
+                        borderSide:
+                            BorderSide(color: AppColors.primaryRed, width: 2),
                       ),
                     ),
                     validator: (value) {
@@ -669,30 +689,38 @@ class _LoginScreenState extends State<LoginScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
 
+                  const SizedBox(height: 16),
                   TextFormField(
                     controller: _deploymentCodeController,
-                    obscureText: !_isDeploymentCodeVisible,
                     decoration: InputDecoration(
                       labelText: 'Deployment Code',
-                      hintText: 'Enter your deployment code',
-                      prefixIcon: Icon(Icons.badge, color: AppColors.primaryRed),
+                      hintText: 'Enter your deployment code or Scan QR Code',
+                      prefixIcon:
+                          Icon(Icons.badge, color: AppColors.primaryRed),
                       suffixIcon: IconButton(
-                        icon: Icon(
-                          _isDeploymentCodeVisible ? Icons.visibility : Icons.visibility_off,
-                          color: AppColors.primaryRed,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _isDeploymentCodeVisible = !_isDeploymentCodeVisible;
-                          });
+                        icon: Icon(Icons.qr_code_scanner,
+                            color: AppColors.primaryRed),
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => QRViewScreen(),
+                            ),
+                          );
+                          if (result != null) {
+                            setState(() {
+                              _deploymentCodeController.text = result;
+                            });
+                          }
                         },
                       ),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: AppColors.primaryRed, width: 2),
+                        borderSide:
+                            BorderSide(color: AppColors.primaryRed, width: 2),
                       ),
                     ),
                     validator: (value) {
@@ -708,7 +736,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: (_isLoading || _isLocationChecking) ? null : _login,
+                      onPressed:
+                          (_isLoading || _isLocationChecking) ? null : _login,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primaryRed,
                         foregroundColor: Colors.white,
@@ -726,7 +755,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                Text(_isLocationChecking ? 'Checking Location...' : 'Authenticating...'),
+                                Text(_isLocationChecking
+                                    ? 'Checking Location...'
+                                    : 'Authenticating...'),
                               ],
                             )
                           : const Row(
@@ -736,7 +767,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 SizedBox(width: 8),
                                 Text(
                                   'Secure Login',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -755,13 +788,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                          const Icon(Icons.check_circle,
+                              color: Colors.green, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              _hasStoredCredentials 
-                                ? 'Previous login credentials loaded automatically'
-                                : 'Stored QR code available - tap history icon to load',
+                              _hasStoredCredentials
+                                  ? 'Previous login credentials loaded automatically'
+                                  : 'Stored QR code available - tap history icon to load',
                               style: TextStyle(
                                 color: Colors.green[100],
                                 fontSize: 12,
@@ -783,10 +817,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.info_outline, color: Colors.lightBlueAccent, size: 20),
+                        const Icon(Icons.info_outline,
+                            color: Colors.lightBlueAccent, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
-                          child:                           Text(
+                          child: Text(
                             'Contact your administrator if you don\'t have a token or deployment code',
                             style: TextStyle(
                               color: Colors.lightBlueAccent[100],
@@ -797,9 +832,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                  
+
                   SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                  
+
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -812,7 +847,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.copyright, color: Colors.grey[400], size: 16),
+                            Icon(Icons.copyright,
+                                color: Colors.grey[400], size: 16),
                             const SizedBox(width: 8),
                             Text(
                               '2025 Philippine National Police',
@@ -826,11 +862,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: AppColors.primaryRed.withOpacity(0.2),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppColors.primaryRed.withOpacity(0.3)),
+                            border: Border.all(
+                                color: AppColors.primaryRed.withOpacity(0.3)),
                           ),
                           child: Text(
                             AppConstants.developerCredit,
@@ -846,7 +884,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 12),
                   Text(
                     'v$_appVersion',
