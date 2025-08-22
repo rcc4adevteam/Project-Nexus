@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/location_service.dart';
 import '../services/device_service.dart';
@@ -39,13 +40,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLocationLoading = true;
   double _internetSpeed = 0.0;
   bool _hasInitialized = false;
+  bool hasInternet = false;
   Map<String, dynamic> _watchdogStatus = {};
   Map<String, dynamic> _wakeLockStatus = {};
 
   @override
   void initState() {
     super.initState();
-    print('Dashboard: initState called with token: ${widget.token.substring(0, 10)}...');
+    print(
+        'Dashboard: initState called with token: ${widget.token.substring(0, 10)}...');
     _initializeServices();
   }
 
@@ -62,12 +65,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _initializeServices() async {
     if (!mounted) return;
-    
+
     setState(() => _isLoading = true);
 
     try {
       print('Dashboard: Starting service initialization...');
-      
+
       // Initialize core services including permanent wake lock
       await Future.wait([
         _initializeDeviceService(),
@@ -78,7 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
       // Start periodic updates
       _startPeriodicUpdates();
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -117,7 +120,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('App monitoring was interrupted. Restarting services...'),
+                content: Text(
+                    'App monitoring was interrupted. Restarting services...'),
                 backgroundColor: Colors.orange,
                 duration: Duration(seconds: 5),
               ),
@@ -138,16 +142,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _initializePermanentWakeLock() async {
     try {
       await _wakeLockService.initialize();
-      
+
       // Force enable wake lock permanently for 24/7 monitoring
       await _wakeLockService.forceEnableForCriticalOperation();
-      
+
       if (mounted) {
         setState(() {
           _wakeLockStatus = _wakeLockService.getDetailedStatus();
         });
       }
-      
+
       print('Dashboard: Permanent wake lock enabled for 24/7 monitoring');
     } catch (e) {
       print('Dashboard: Error initializing permanent wake lock: $e');
@@ -160,36 +164,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _initializeLocationTracking() async {
     if (!mounted) return;
-    
+
     setState(() => _isLocationLoading = true);
 
     try {
       print('Dashboard: Initializing high-precision location tracking...');
-      
+
       final hasAccess = await _locationService.checkLocationRequirements();
       if (hasAccess) {
         // Ensure wake lock is active for location tracking
         await _wakeLockService.forceEnableForCriticalOperation();
-        
+
         // Get initial high-precision location
         final position = await _locationService.getCurrentPosition(
           accuracy: LocationAccuracy.bestForNavigation,
           timeout: const Duration(seconds: 15),
         );
-        
+
         if (position != null) {
-          print('Dashboard: Initial high-precision location obtained: ${position.latitude}, ${position.longitude}, accuracy: ±${position.accuracy.toStringAsFixed(1)}m');
+          print(
+              'Dashboard: Initial high-precision location obtained: ${position.latitude}, ${position.longitude}, accuracy: ±${position.accuracy.toStringAsFixed(1)}m');
           if (mounted) {
             setState(() => _isLocationLoading = false);
           }
         }
-        
+
         // Start high-precision continuous tracking
         _locationService.startHighPrecisionTracking(
           onLocationUpdate: (position) {
             if (mounted) {
               setState(() => _isLocationLoading = false);
-              print('Dashboard: High-precision location updated: ${position.latitude}, ${position.longitude}, accuracy: ±${position.accuracy.toStringAsFixed(1)}m, speed: ${position.speed.toStringAsFixed(1)}m/s');
+              print(
+                  'Dashboard: High-precision location updated: ${position.latitude}, ${position.longitude}, accuracy: ±${position.accuracy.toStringAsFixed(1)}m, speed: ${position.speed.toStringAsFixed(1)}m/s');
             }
           },
           onError: (error) {
@@ -210,24 +216,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Timer(const Duration(seconds: 20), () {
           if (mounted && _isLocationLoading) {
             setState(() => _isLocationLoading = false);
-            print('Dashboard: Location loading timeout - stopping loading indicator');
+            print(
+                'Dashboard: Location loading timeout - stopping loading indicator');
           }
         });
-
       } else {
         print('Dashboard: High-precision location access not available');
         if (mounted) {
           setState(() => _isLocationLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('High-precision location requires GPS and location permissions'),
+              content: Text(
+                  'High-precision location requires GPS and location permissions'),
               backgroundColor: Colors.red,
             ),
           );
         }
       }
     } catch (e) {
-      print('Dashboard: Error initializing high-precision location tracking: $e');
+      print(
+          'Dashboard: Error initializing high-precision location tracking: $e');
       if (mounted) {
         setState(() => _isLocationLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -252,10 +260,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       const Duration(minutes: 5),
       (timer) {
         _watchdogService.ping();
-        
+
         // Ensure wake lock stays enabled (built-in maintenance)
         _maintainWakeLock();
-        
+
         if (mounted) {
           setState(() {
             _watchdogStatus = _watchdogService.getStatus();
@@ -269,7 +277,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Timer.periodic(const Duration(seconds: 15), (timer) {
       if (mounted) {
         setState(() {
-          _internetSpeed = 100 + (DateTime.now().millisecondsSinceEpoch % 1000) / 10;
+          _internetSpeed =
+              100 + (DateTime.now().millisecondsSinceEpoch % 1000) / 10;
         });
       }
     });
@@ -280,7 +289,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final isEnabled = await _wakeLockService.checkWakeLockStatus();
       if (!isEnabled) {
-        print('Dashboard: Wake lock disabled, re-enabling for continuous monitoring...');
+        print(
+            'Dashboard: Wake lock disabled, re-enabling for continuous monitoring...');
         await _wakeLockService.forceEnableForCriticalOperation();
       }
     } catch (e) {
@@ -320,7 +330,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final level = _deviceService.batteryLevel;
     final state = _deviceService.batteryState;
 
-    if (state.toString().contains('charging')) return Icons.battery_charging_full;
+    if (state.toString().contains('charging'))
+      return Icons.battery_charging_full;
     if (level > 80) return Icons.battery_full;
     if (level > 60) return Icons.battery_6_bar;
     if (level > 40) return Icons.battery_4_bar;
@@ -344,12 +355,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       print('Dashboard: Force refreshing high-precision location...');
-      
+
       final position = await _locationService.forceLocationRefresh();
       if (position != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('High-precision location refreshed (±${position.accuracy.toStringAsFixed(1)}m)'),
+            content: Text(
+                'High-precision location refreshed (±${position.accuracy.toStringAsFixed(1)}m)'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 2),
           ),
@@ -357,7 +369,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to get high-precision location. Try moving outdoors.'),
+            content: Text(
+                'Failed to get high-precision location. Try moving outdoors.'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -380,105 +393,149 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _showLogoutConfirmation() async {
+    bool hasInternet = false;
+
+    // Check internet when dialog opens
+    var connectivityResult = await Connectivity().checkConnectivity();
+    hasInternet = connectivityResult != ConnectivityResult.none;
+
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.logout, color: Colors.orange, size: 24),
-            const SizedBox(width: 8),
-            const Text('Confirm Logout'),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Are you sure you want to logout?',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 12),
-            Text('This will:'),
-            SizedBox(height: 8),
-            Text('• Stop location tracking'),
-            Text('• Stop background monitoring'),
-            Text('• Clear saved credentials'),
-            Text('• Return you to login screen'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            child: const Text('Cancel'),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Logout'),
-            onPressed: () {
-              Navigator.of(context).pop();
-              _performLogout();
-            },
-          ),
-        ],
-      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // Listen for connectivity changes while dialog is open
+            Connectivity().onConnectivityChanged.listen((result) {
+              bool newHasInternet = result != ConnectivityResult.none;
+              if (newHasInternet != hasInternet) {
+                setState(() {
+                  hasInternet = newHasInternet;
+                });
+              }
+            });
+
+            return AlertDialog(
+              title: Row(
+                children: const [
+                  Icon(Icons.logout, color: Colors.orange, size: 24),
+                  SizedBox(width: 8),
+                  Text('Confirm Logout'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Are you sure you want to logout?',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('This will:'),
+                  const SizedBox(height: 8),
+                  const Text('• Stop location tracking'),
+                  const Text('• Stop background monitoring'),
+                  const Text('• Clear saved credentials'),
+                  const Text('• Return you to login screen'),
+                  const SizedBox(height: 16),
+
+                  // ⚠️ Warning message when no internet
+                  if (!hasInternet) ...[
+                    const Divider(),
+                    Row(
+                      children: const [
+                        Icon(Icons.warning, color: Colors.red, size: 20),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'No internet connection detected.\nLogout is disabled until connection is restored.',
+                            style: TextStyle(color: Colors.red, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        hasInternet ? Colors.red : Colors.grey, // 🔴 or 🔒
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: hasInternet
+                      ? () {
+                          Navigator.of(context).pop();
+                          _performLogout();
+                        }
+                      : null, // 🚫 Disabled when offline
+                  child: const Text('Logout'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
-  Future<void> _executeCancellableAction(String title, Future<void> Function() action) async {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => Center(
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(title),
-                ],
-              ),
+  Future<void> _executeCancellableAction(
+      String title, Future<void> Function() action) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(title),
+              ],
             ),
           ),
         ),
+      ),
+    );
+
+    try {
+      await action();
+    } catch (e) {
+      print("Dashboard: Error during action '$title': $e");
+    }
+
+    if (mounted) {
+      Navigator.of(context).pop();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
       );
-
-      try {
-        await action();
-      } catch (e) {
-        print("Dashboard: Error during action '$title': $e");
-      }
-
-      if (mounted) {
-        Navigator.of(context).pop();
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-          (route) => false,
-        );
-      }
+    }
   }
 
   Future<void> _performLogout() async {
     await _executeCancellableAction('Logging out...', () async {
-        await ApiService.logout(widget.token, widget.deploymentCode);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('token');
-        await prefs.remove('deploymentCode');
-        _watchdogService.stopWatchdog();
-        try {
-          await stopBackgroundServiceSafely();
-        } catch (e) {
-          print("Dashboard: Error stopping background service: $e");
-        }
-        await Future.delayed(const Duration(milliseconds: 500));
+      await ApiService.logout(widget.token, widget.deploymentCode);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('token');
+      await prefs.remove('deploymentCode');
+      _watchdogService.stopWatchdog();
+      try {
+        await stopBackgroundServiceSafely();
+      } catch (e) {
+        print("Dashboard: Error stopping background service: $e");
+      }
+      await Future.delayed(const Duration(milliseconds: 500));
     });
   }
 
@@ -544,7 +601,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 ],
                               ),
                             ),
-                            const Icon(Icons.screen_lock_rotation, color: Colors.green),
+                            const Icon(Icons.screen_lock_rotation,
+                                color: Colors.green),
                           ],
                         ),
                       ),
@@ -554,20 +612,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     // Watchdog Status Card
                     if (_watchdogStatus.isNotEmpty) ...[
                       Card(
-                        color: (_watchdogStatus['isRunning'] ?? false) 
-                          ? Colors.blue[900] 
-                          : Colors.orange[900],
+                        color: (_watchdogStatus['isRunning'] ?? false)
+                            ? Colors.blue[900]
+                            : Colors.orange[900],
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Row(
                             children: [
                               Icon(
-                                (_watchdogStatus['isRunning'] ?? false) 
-                                  ? Icons.security 
-                                  : Icons.warning,
-                                color: (_watchdogStatus['isRunning'] ?? false) 
-                                  ? Colors.blue 
-                                  : Colors.orange,
+                                (_watchdogStatus['isRunning'] ?? false)
+                                    ? Icons.security
+                                    : Icons.warning,
+                                color: (_watchdogStatus['isRunning'] ?? false)
+                                    ? Colors.blue
+                                    : Colors.orange,
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -575,20 +633,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      (_watchdogStatus['isRunning'] ?? false) 
-                                        ? 'Watchdog Active' 
-                                        : 'Watchdog Stopped',
+                                      (_watchdogStatus['isRunning'] ?? false)
+                                          ? 'Watchdog Active'
+                                          : 'Watchdog Stopped',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: (_watchdogStatus['isRunning'] ?? false) 
-                                          ? Colors.blue 
-                                          : Colors.orange,
+                                        color: (_watchdogStatus['isRunning'] ??
+                                                false)
+                                            ? Colors.blue
+                                            : Colors.orange,
                                       ),
                                     ),
                                     Text(
-                                      (_watchdogStatus['isRunning'] ?? false) 
-                                        ? 'Monitoring app health every 15 minutes'
-                                        : 'App monitoring disabled',
+                                      (_watchdogStatus['isRunning'] ?? false)
+                                          ? 'Monitoring app health every 15 minutes'
+                                          : 'App monitoring disabled',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: Colors.white,
@@ -603,13 +662,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    
+
                     MetricCard(
                       title: 'Battery',
                       icon: _getBatteryIcon(),
                       iconColor: _getBatteryColor(),
                       value: '${_deviceService.batteryLevel}%',
-                      subtitle: _deviceService.batteryState.toString().split('.').last.toUpperCase(),
+                      subtitle: _deviceService.batteryState
+                          .toString()
+                          .split('.')
+                          .last
+                          .toUpperCase(),
                       isRealTime: true,
                     ),
                     MetricCard(
@@ -617,7 +680,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       icon: Icons.signal_cellular_alt,
                       iconColor: _getSignalColor(),
                       value: _deviceService.signalStrength.toUpperCase(),
-                      subtitle: _deviceService.connectivityResult.toString().split('.').last.toUpperCase(),
+                      subtitle: _deviceService.connectivityResult
+                          .toString()
+                          .split('.')
+                          .last
+                          .toUpperCase(),
                       isRealTime: true,
                     ),
                     MetricCard(
@@ -628,7 +695,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       subtitle: 'SIMULATED DATA',
                       isRealTime: true,
                     ),
-                    
+
                     _buildLocationCard(),
                   ],
                 ),
@@ -663,7 +730,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     await _locationService.requestLocationPermission();
                     await _initializeLocationTracking();
                   } catch (e) {
-                    print('Dashboard: Error requesting location permission: $e');
+                    print(
+                        'Dashboard: Error requesting location permission: $e');
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -748,14 +816,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: (isHighAccuracy ? Colors.green : Colors.orange).withOpacity(0.1),
+                        color: (isHighAccuracy ? Colors.green : Colors.orange)
+                            .withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
-                        isHighAccuracy ? Icons.gps_fixed : Icons.location_on, 
-                        color: isHighAccuracy ? Colors.green : Colors.orange, 
-                        size: 32
-                      ),
+                          isHighAccuracy ? Icons.gps_fixed : Icons.location_on,
+                          color: isHighAccuracy ? Colors.green : Colors.orange,
+                          size: 32),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -767,24 +835,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const Flexible(
                                 child: Text(
                                   'High-Precision Location',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: (isHighAccuracy ? Colors.green : Colors.orange).withOpacity(0.2),
+                                  color: (isHighAccuracy
+                                          ? Colors.green
+                                          : Colors.orange)
+                                      .withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   isHighAccuracy ? 'PRECISE' : 'SEARCHING',
                                   style: TextStyle(
-                                    fontSize: 8, 
-                                    fontWeight: FontWeight.bold, 
-                                    color: isHighAccuracy ? Colors.green : Colors.orange
-                                  ),
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                      color: isHighAccuracy
+                                          ? Colors.green
+                                          : Colors.orange),
                                 ),
                               ),
                             ],
@@ -792,12 +867,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           const SizedBox(height: 4),
                           Text(
                             'Lat: ${position.latitude.toStringAsFixed(6)}°',
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w500),
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
                             'Lng: ${position.longitude.toStringAsFixed(6)}°',
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w500),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
@@ -805,9 +882,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ],
                 ),
-                
                 const SizedBox(height: 12),
-                
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -815,7 +890,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: ElevatedButton.icon(
                         onPressed: _refreshLocation,
                         icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text('Refresh', style: TextStyle(fontSize: 12)),
+                        label: const Text('Refresh',
+                            style: TextStyle(fontSize: 12)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.tealAccent,
                           foregroundColor: Colors.black,
@@ -827,14 +903,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          final coordinates = '${position.latitude}, ${position.longitude}';
+                          final coordinates =
+                              '${position.latitude}, ${position.longitude}';
                           Clipboard.setData(ClipboardData(text: coordinates));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Coordinates copied!')),
+                            const SnackBar(
+                                content: Text('Coordinates copied!')),
                           );
                         },
                         icon: const Icon(Icons.copy, size: 16),
-                        label: const Text('Copy', style: TextStyle(fontSize: 12)),
+                        label:
+                            const Text('Copy', style: TextStyle(fontSize: 12)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
                           foregroundColor: Colors.white,
@@ -846,9 +925,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-            
             const SizedBox(height: 16),
-            
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -859,12 +936,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.center_focus_strong, color: Colors.grey[400], size: 16),
+                      Icon(Icons.center_focus_strong,
+                          color: Colors.grey[400], size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Accuracy: ${_locationService.getAccuracyStatus()}',
-                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                          style:
+                              TextStyle(color: Colors.grey[400], fontSize: 12),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -878,7 +957,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Expanded(
                         child: Text(
                           'Source: ${_locationService.getLocationSource()}',
-                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                          style:
+                              TextStyle(color: Colors.grey[400], fontSize: 12),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -892,7 +972,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Expanded(
                         child: Text(
                           'Speed: ${position.speed.toStringAsFixed(1)} m/s • ${_locationService.getMovementStatus()}',
-                          style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                          style:
+                              TextStyle(color: Colors.grey[400], fontSize: 12),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -901,9 +982,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 12),
-
             if (position.speed > 0.1) ...[
               Container(
                 padding: const EdgeInsets.all(12),
@@ -915,12 +994,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.navigation, color: Colors.blue, size: 16),
+                        const Icon(Icons.navigation,
+                            color: Colors.blue, size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Heading: ${position.heading.toStringAsFixed(0)}°',
-                            style: const TextStyle(color: Colors.lightBlue, fontSize: 12),
+                            style: const TextStyle(
+                                color: Colors.lightBlue, fontSize: 12),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -929,12 +1010,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.directions_car, color: Colors.blue, size: 16),
+                        const Icon(Icons.directions_car,
+                            color: Colors.blue, size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Speed: ${(position.speed * 3.6).toStringAsFixed(1)} km/h',
-                            style: const TextStyle(color: Colors.lightBlue, fontSize: 12),
+                            style: const TextStyle(
+                                color: Colors.lightBlue, fontSize: 12),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -945,7 +1028,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 12),
             ],
-
             if (position.altitude.abs() > 1) ...[
               Container(
                 padding: const EdgeInsets.all(8),
@@ -960,7 +1042,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Expanded(
                       child: Text(
                         'Altitude: ${position.altitude.toStringAsFixed(0)}m • Updated: ${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}',
-                        style: const TextStyle(color: Colors.lightGreen, fontSize: 11),
+                        style: const TextStyle(
+                            color: Colors.lightGreen, fontSize: 11),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
