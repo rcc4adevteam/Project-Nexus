@@ -34,7 +34,7 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateMixin {
+class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateMixin, WidgetsBindingObserver {
   final _locationService = LocationService();
   final _deviceService = DeviceService();
   final _watchdogService = WatchdogService();
@@ -214,6 +214,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeServices();
     _initializeNotifications();
     _listenForConnectivityChanges();
@@ -223,6 +224,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cleanupAllTimers();
     _locationAlarmTimer?.cancel();
     _locationService.dispose();
@@ -231,6 +233,15 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
     _connectivitySubscription?.cancel();
     _locationServiceStatusSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // Mark app as alive when returning to foreground
+      _watchdogService.markAppAsAlive();
+    }
   }
 
   void _listenToLocationServiceStatus() {
@@ -281,6 +292,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
       sound: RawResourceAndroidNotificationSound('alarm_sound'),
       playSound: true,
       ongoing: true,
+      visibility: NotificationVisibility.public,
       styleInformation: const BigTextStyleInformation(
         body,
         contentTitle: title,

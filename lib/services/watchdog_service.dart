@@ -1,5 +1,4 @@
 import 'dart:async';
-// Removed unused imports
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -136,6 +135,7 @@ class WatchdogService {
         importance: Importance.high,
         priority: Priority.high,
         showWhen: true,
+        visibility: NotificationVisibility.public,
         styleInformation: BigTextStyleInformation(
           body,
           contentTitle: title,
