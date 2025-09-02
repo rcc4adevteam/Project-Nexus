@@ -80,7 +80,9 @@ class DeviceService {
 
   // Enhanced offline notification that persists on lock screen
   Future<void> _showConnectionLostNotification() async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    const String title = 'Network Connection Lost';
+    const String body = 'Device is offline. Location tracking continues but cannot send data. Auto-reconnect enabled.';
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'connectivity_channel',
       'Connectivity Status',
@@ -94,13 +96,17 @@ class DeviceService {
       showWhen: true,
       autoCancel: false,
       fullScreenIntent: true,
+      styleInformation: const BigTextStyleInformation(
+        body,
+        contentTitle: title,
+      ),
     );
-    const NotificationDetails platformChannelSpecifics =
+    final NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
     await _notifications.show(
       100,
-      'Network Connection Lost',
-      'Device is offline. Location tracking continues but cannot send data. Auto-reconnect enabled.',
+      title,
+      body,
       platformChannelSpecifics,
     );
     _wasOfflineNotificationSent = true;
@@ -108,7 +114,9 @@ class DeviceService {
 
   // Connection restored notification
   Future<void> _showConnectionRestoredNotification() async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    const String title = 'Connection Restored';
+    const String body = 'Network connection restored. Location tracking resumed successfully.';
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'connectivity_channel',
       'Connectivity Status',
@@ -118,13 +126,17 @@ class DeviceService {
       enableVibration: false,
       visibility: NotificationVisibility.public,
       autoCancel: true,
+      styleInformation: const BigTextStyleInformation(
+        body,
+        contentTitle: title,
+      ),
     );
-    const NotificationDetails platformChannelSpecifics =
+    final NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
     await _notifications.show(
       102,
-      'Connection Restored',
-      'Network connection restored. Location tracking resumed successfully.',
+      title,
+      body,
       platformChannelSpecifics,
     );
     
@@ -136,7 +148,9 @@ class DeviceService {
 
   // Enhanced low battery notification for lock screen
   Future<void> _showLowBatteryNotification() async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    final String title = 'Critical Battery Level';
+    final String body = 'Battery at $_batteryLevel%. Connect charger immediately to ensure continuous tracking.';
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'battery_alerts',
       'Battery Alerts',
@@ -149,13 +163,17 @@ class DeviceService {
       ongoing: false,
       showWhen: true,
       fullScreenIntent: true,
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: title,
+      ),
     );
-    const NotificationDetails platformChannelSpecifics =
+    final NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
     await _notifications.show(
       101,
-      'Critical Battery Level',
-      'Battery at $_batteryLevel%. Connect charger immediately to ensure continuous tracking.',
+      title,
+      body,
       platformChannelSpecifics,
     );
   }

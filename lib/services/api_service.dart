@@ -5,9 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../utils/constants.dart';
-import 'secure_storage_service.dart';
 import 'error_handling_service.dart';
-import 'loading_service.dart';
 
 class ApiService {
   // ===== BASIC API METHODS =====
@@ -169,7 +167,7 @@ class ApiService {
   // Movement thresholds for adaptive updates
   static const double stationarySpeed = 1.0; // m/s (~3.6 km/h)
   static const double movingSpeed = 2.0; // m/s (~7.2 km/h)
-  static const double fastMovingSpeed = 8.0; // m/s (~28.8 km/h)
+  static const double fastMovingSpeed = 2.78; // m/s (~10.0 km/h)
   static const double movementDistance = 10.0; // meters
   
   // Adaptive update intervals based on movement and context

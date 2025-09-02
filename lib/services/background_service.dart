@@ -201,6 +201,8 @@ Future<bool> onIosBackground(ServiceInstance service) async {
 
 // Session terminated notification
 Future<void> _showSessionTerminatedNotification() async {
+  const String title = '🚨 Session Terminated';
+  final String body = 'Your deployment code was logged in from another device. Background service stopped. Time: ${DateTime.now().toString().substring(11, 19)}';
   AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     'session_terminated_bg',
     'SESSION TERMINATED',
@@ -223,14 +225,18 @@ Future<void> _showSessionTerminatedNotification() async {
     playSound: true,
     showWhen: true,
     channelShowBadge: true,
+    styleInformation: BigTextStyleInformation(
+      body,
+      contentTitle: title,
+    ),
   );
   
   NotificationDetails details = NotificationDetails(android: androidDetails);
   
   await _notifications.show(
     sessionTerminatedId,
-    '🚨 Session Terminated',
-    'Your deployment code was logged in from another device. Background service stopped. Time: ${DateTime.now().toString().substring(11, 19)}',
+    title,
+    body,
     details,
   );
   
@@ -239,6 +245,8 @@ Future<void> _showSessionTerminatedNotification() async {
 
 // Aggressive disconnection notification
 Future<void> _showAggressiveDisconnectionNotification() async {
+  const String title = '🚨 BACKGROUND SERVICE: Connection Lost';
+  final String body = 'ENHANCED ALERT: Device disconnected (#$_disconnectionCount). Background tracking continues. Time: ${DateTime.now().toString().substring(11, 19)}';
   AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     'critical_disconnection_bg',
     'CRITICAL DISCONNECTION',
@@ -265,14 +273,18 @@ Future<void> _showAggressiveDisconnectionNotification() async {
     groupKey: 'CRITICAL_BG_ALERTS',
     setAsGroupSummary: true,
     timeoutAfter: null,
+    styleInformation: BigTextStyleInformation(
+      body,
+      contentTitle: title,
+    ),
   );
   
   NotificationDetails details = NotificationDetails(android: androidDetails);
   
   await _notifications.show(
     aggressiveDisconnectionId,
-    '🚨 BACKGROUND SERVICE: Connection Lost',
-    'ENHANCED ALERT: Device disconnected (#$_disconnectionCount). Background tracking continues. Time: ${DateTime.now().toString().substring(11, 19)}',
+    title,
+    body,
     details,
   );
   
@@ -286,6 +298,8 @@ Future<void> _showEmergencyBackgroundAlert() async {
       ? DateTime.now().difference(_lastConnectionCheck!).inMinutes 
       : 0;
 
+  final String title = '🆘 EMERGENCY: Extended Offline ($offlineMinutes min)';
+  final String body = 'CRITICAL: Device offline for $offlineMinutes minutes. Background service maintaining GPS tracking. Check connection immediately.';
   AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     'emergency_bg_override',
     'EMERGENCY BACKGROUND ALERT',
@@ -310,14 +324,18 @@ Future<void> _showEmergencyBackgroundAlert() async {
     showWhen: true,
     channelShowBadge: true,
     timeoutAfter: null,
+    styleInformation: BigTextStyleInformation(
+      body,
+      contentTitle: title,
+    ),
   );
   
   NotificationDetails details = NotificationDetails(android: androidDetails);
   
   await _notifications.show(
     emergencyAlertId,
-    '🆘 EMERGENCY: Extended Offline ($offlineMinutes min)',
-    'CRITICAL: Device offline for $offlineMinutes minutes. Background service maintaining GPS tracking. Check connection immediately.',
+    title,
+    body,
     details,
   );
   
@@ -326,6 +344,8 @@ Future<void> _showEmergencyBackgroundAlert() async {
 
 // Connection restored notification
 Future<void> _showConnectionRestoredNotification() async {
+  const String title = '✅ Background Service: Connection Restored';
+  final String body = 'Network restored successfully. Location sync resumed. Disconnection count: $_disconnectionCount';
   AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     'reconnection_channel',
     'Connection Restored',
@@ -337,14 +357,18 @@ Future<void> _showConnectionRestoredNotification() async {
     autoCancel: true,
     color: Color(0xFF00FF00),
     colorized: true,
+    styleInformation: BigTextStyleInformation(
+      body,
+      contentTitle: title,
+    ),
   );
   
   NotificationDetails details = NotificationDetails(android: androidDetails);
   
   await _notifications.show(
     reconnectionNotificationId,
-    '✅ Background Service: Connection Restored',
-    'Network restored successfully. Location sync resumed. Disconnection count: $_disconnectionCount',
+    title,
+    body,
     details,
   );
   
@@ -362,6 +386,8 @@ Future<void> _showHeartbeatNotification() async {
 
   final sessionStatus = _sessionActive ? 'ACTIVE' : 'TERMINATED';
 
+  final String title = 'PNP Enhanced Monitoring Active';
+  final String body = 'Uptime: ${uptime}min • Disconnections: $_disconnectionCount • Status: ${_isOnline ? "ONLINE" : "OFFLINE"} • Session: $sessionStatus • ${DateTime.now().toString().substring(11, 16)}';
   AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     heartbeatChannelId,
     'PNP Enhanced Heartbeat',
@@ -371,14 +397,18 @@ Future<void> _showHeartbeatNotification() async {
     showWhen: true,
     ongoing: false,
     autoCancel: true,
+    styleInformation: BigTextStyleInformation(
+      body,
+      contentTitle: title,
+    ),
   );
   
   NotificationDetails details = NotificationDetails(android: androidDetails);
   
   await _notifications.show(
     heartbeatNotificationId,
-    'PNP Enhanced Monitoring Active',
-    'Uptime: ${uptime}min • Disconnections: $_disconnectionCount • Status: ${_isOnline ? "ONLINE" : "OFFLINE"} • Session: $sessionStatus • ${DateTime.now().toString().substring(11, 16)}',
+    title,
+    body,
     details,
   );
 }
@@ -734,6 +764,8 @@ Future<void> _checkLocationServiceStatus() async {
 
 // Show critical location alert notification
 Future<void> _showCriticalLocationAlert() async {
+  const String title = '🚨 CRITICAL: Location Service Compromised';
+  const String body = 'GPS/Location access lost in background! Device tracking compromised. Immediate action required.';
   const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
     'location_alert_channel',
     'Location Service Compromised',
@@ -748,14 +780,18 @@ Future<void> _showCriticalLocationAlert() async {
     fullScreenIntent: true,
     color: Color(0xFFFF0000),
     colorized: true,
+    styleInformation: BigTextStyleInformation(
+      body,
+      contentTitle: title,
+    ),
   );
   
   const NotificationDetails details = NotificationDetails(android: androidDetails);
   
   await _notifications.show(
     1003, // Critical location alert notification ID
-    '🚨 CRITICAL: Location Service Compromised',
-    'GPS/Location access lost in background! Device tracking compromised. Immediate action required.',
+    title,
+    body,
     details,
   );
 }

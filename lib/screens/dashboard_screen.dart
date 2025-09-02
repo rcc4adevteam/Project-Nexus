@@ -14,7 +14,6 @@ import '../services/wake_lock_service.dart';
 import '../services/theme_provider.dart';
 import '../services/responsive_ui_service.dart';
 import '../services/update_service.dart';
-import '../widgets/metric_card.dart';
 import '../widgets/auto_size_text.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/hero_header.dart';
@@ -103,6 +102,115 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
     }
   }
 
+  List<Widget> _buildTextOnlyItems(BuildContext context) {
+    final textStyleTitle = TextStyle(
+      fontWeight: FontWeight.w700,
+      fontSize: getResponsiveFont(14.0),
+    );
+    final textStyleValue = TextStyle(
+      fontWeight: FontWeight.w800,
+      fontSize: getResponsiveFont(16.0),
+    );
+    final textStyleSub = TextStyle(
+      color: Colors.grey[700],
+      fontSize: getResponsiveFont(12.0),
+    );
+
+    Widget item({required String title, required String value, String? subtitle, Color? valueColor, IconData? icon}) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: context.responsiveFont(12.0)),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: getResponsiveFont(18.0), color: valueColor ?? Theme.of(context).colorScheme.primary),
+              SizedBox(width: context.responsiveFont(10.0)),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: textStyleTitle),
+                  SizedBox(height: context.responsiveFont(2.0)),
+                  Text(value, style: textStyleValue.copyWith(color: valueColor)),
+                  if (subtitle != null && subtitle.isNotEmpty) ...[
+                    SizedBox(height: context.responsiveFont(2.0)),
+                    Text(subtitle, style: textStyleSub),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final widgets = <Widget>[
+      item(
+        title: 'Connection',
+        value: _isOnline ? 'Online' : 'Offline',
+        subtitle: _deviceService.getConnectivityDescription(),
+        valueColor: _isOnline ? Colors.green : Colors.red,
+        icon: _isOnline ? Icons.wifi_rounded : Icons.wifi_off_rounded,
+      ),
+      item(
+        title: 'Battery',
+        value: '${_deviceService.batteryLevel}%',
+        subtitle: _deviceService.getBatteryHealthStatus(),
+        valueColor: _getBatteryColor(context),
+        icon: _getBatteryIcon(),
+      ),
+      item(
+        title: 'Signal Status',
+        value: _deviceService.signalStatus.toUpperCase(),
+        valueColor: _getSignalColor(context),
+        icon: Icons.signal_cellular_alt_rounded,
+      ),
+      item(
+        title: 'Last Update',
+        value: _lastSuccessfulUpdate?.toString().substring(11, 19) ?? 'Never',
+        subtitle: 'Updates Sent: $_locationUpdatesSent',
+        icon: Icons.update_rounded,
+      ),
+    ];
+
+    // Location
+    final position = _locationService.currentPosition;
+    if (_isLocationLoading) {
+      widgets.add(item(
+        title: 'Location',
+        value: 'Loading...',
+        subtitle: 'Retrieving high-precision GPS',
+        icon: Icons.gps_fixed_rounded,
+      ));
+    } else if (position == null) {
+      widgets.add(item(
+        title: 'Location',
+        value: 'Unavailable',
+        subtitle: 'Tap to refresh',
+        icon: Icons.location_off,
+      ));
+    } else {
+      widgets.add(item(
+        title: 'Location',
+        value: 'Lat: ${position.latitude.toStringAsFixed(4)}  Lng: ${position.longitude.toStringAsFixed(4)}',
+        subtitle: 'Acc: ±${position.accuracy.toStringAsFixed(1)}m',
+        valueColor: Colors.green,
+        icon: Icons.gps_fixed_rounded,
+      ));
+    }
+
+    // Session
+    widgets.add(item(
+      title: 'Session',
+      value: _sessionActive ? 'Active' : 'Lost',
+      subtitle: 'Last Check: ${_lastSessionCheck != null ? _lastSessionCheck!.toString().substring(11, 19) : 'Never'}',
+      valueColor: _sessionActive ? Colors.green : Colors.red,
+      icon: _sessionActive ? Icons.verified_user_rounded : Icons.error_rounded,
+    ));
+
+    return widgets;
+  }
   @override
   void initState() {
     super.initState();
@@ -161,7 +269,9 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
   }
 
   Future<void> _showLocationOffNotification() async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    const String title = 'Location Service Disabled';
+    const String body = 'Location is required for the app to function correctly. Please turn it back on.';
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'location_alarm_channel',
       'Location Status',
@@ -171,14 +281,18 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
       sound: RawResourceAndroidNotificationSound('alarm_sound'),
       playSound: true,
       ongoing: true,
+      styleInformation: const BigTextStyleInformation(
+        body,
+        contentTitle: title,
+      ),
     );
-    const NotificationDetails platformChannelSpecifics =
+    final NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
 
     await _notifications.show(
       AppConstants.locationWarningNotificationId,
-      'Location Service Disabled',
-      'Location is required for the app to function correctly. Please turn it back on.',
+      title,
+      body,
       platformChannelSpecifics,
     );
   }
@@ -604,7 +718,9 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
   }
 
   Future<void> _showConnectionLostNotification() async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    const String title = 'Network Connection Lost';
+    const String body = 'Device is offline. Location tracking continues but data cannot be sent. Will auto-reconnect when network is available.';
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'connectivity_channel',
       'Connectivity',
@@ -616,19 +732,25 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
       visibility: NotificationVisibility.public,
       ongoing: true,
       fullScreenIntent: true,
+      styleInformation: const BigTextStyleInformation(
+        body,
+        contentTitle: title,
+      ),
     );
-    const NotificationDetails platformChannelSpecifics =
+    final NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
     await _notifications.show(
       0,
-      'Network Connection Lost',
-      'Device is offline. Location tracking continues but data cannot be sent. Will auto-reconnect when network is available.',
+      title,
+      body,
       platformChannelSpecifics,
     );
   }
 
   Future<void> _showConnectionRestoredNotification() async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    const String title = 'Connection Restored';
+    const String body = 'Network connection restored. Location tracking resumed successfully.';
+    final AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'connectivity_channel',
       'Connectivity',
@@ -638,13 +760,17 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
       enableVibration: false,
       visibility: NotificationVisibility.public,
       autoCancel: true,
+      styleInformation: const BigTextStyleInformation(
+        body,
+        contentTitle: title,
+      ),
     );
-    const NotificationDetails platformChannelSpecifics =
+    final NotificationDetails platformChannelSpecifics =
         NotificationDetails(android: androidPlatformChannelSpecifics);
     await _notifications.show(
       1,
-      'Connection Restored',
-      'Network connection restored. Location tracking resumed successfully.',
+      title,
+      body,
       platformChannelSpecifics,
     );
 
@@ -863,13 +989,13 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
     final speed = position.speed; // m/s
     final batteryLevel = _deviceService.batteryLevel;
     
-    // FAST MOVEMENT: 5 seconds (your requirement)
-    if (speed >= 3.9) { // >14 km/h (3.9 m/s = 14.04 km/h)
+    // FAST MOVEMENT: 5 seconds
+    if (speed >= 2.78) { // >10 km/h (2.78 m/s)
       return Duration(seconds: 5);
     }
     
     // NORMAL MOVEMENT: 15 seconds
-    if (speed >= 2.0) { // >7 km/h
+    if (speed >= 2.0) { // >7.2 km/h
       return Duration(seconds: 15);
     }
     
@@ -1278,47 +1404,12 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
                         Expanded(
                           child: RefreshIndicator(
                             onRefresh: _refreshDashboard,
-                            child: GridView.count(
-                              crossAxisCount: ResponsiveUIService.getGridCrossAxisCount(context),
-                              padding: context.responsivePadding(),
-                              mainAxisSpacing: context.responsiveFont(16.0),
-                              crossAxisSpacing: context.responsiveFont(16.0),
-                              childAspectRatio: _calculateAspectRatio(),
-                              children: [
-                                MetricCard(
-                                  title: 'Connection',
-                                  icon: _isOnline ? Icons.wifi_rounded : Icons.wifi_off_rounded,
-                                  iconColor: _isOnline ? Colors.green : Colors.red,
-                                  value: _isOnline ? 'Online' : 'Offline',
-                                  subtitle: _deviceService.getConnectivityDescription(),
-                                ),
-                                MetricCard(
-                                  title: 'Battery',
-                                  icon: _getBatteryIcon(),
-                                  iconColor: _getBatteryColor(context),
-                                  value: '${_deviceService.batteryLevel}%',
-                                  subtitle: _deviceService.getBatteryHealthStatus(),
-                                  isRealTime: true,
-                                ),
-                                MetricCard(
-                                  title: 'Signal Status', // FIXED: Changed from 'Signal Strength' to 'Signal Status'
-                                  icon: Icons.signal_cellular_alt_rounded,
-                                  iconColor: _getSignalColor(context),
-                                  value: _deviceService.signalStatus.toUpperCase(),
-                                  subtitle: '',
-                                  isRealTime: true,
-                                ),
-                                MetricCard(
-                                  title: 'Last Update',
-                                  icon: Icons.update_rounded,
-                                  iconColor: Theme.of(context).colorScheme.primary,
-                                  value: _lastSuccessfulUpdate?.toString().substring(11, 19) ?? "Never",
-                                  subtitle: 'Updates Sent: $_locationUpdatesSent',
-                                ),
-                                _buildLocationCard(),
-                                _buildSessionMonitoringCard(),
-                                _buildMovementStatsCard(),
-                              ],
+                            child: ListView(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: context.responsiveFont(16.0),
+                                vertical: context.responsiveFont(8.0),
+                              ),
+                              children: _buildTextOnlyItems(context),
                             ),
                           ),
                         ),
@@ -1385,150 +1476,14 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
     return _consoleLines;
   }
 
-  double _calculateAspectRatio() {
-    final screenType = ResponsiveUIService.getScreenType(
-      MediaQuery.of(context).size.width,
-    );
-    final orientation = MediaQuery.of(context).orientation;
+  // Removed grid aspect ratio helper (text-only mode)
 
-    switch (screenType) {
-      case ScreenType.mobile:
-        return orientation == Orientation.landscape ? 1.6 : 1.3;
-      case ScreenType.tablet:
-        return orientation == Orientation.landscape ? 1.8 : 1.5;
-      case ScreenType.desktop:
-      case ScreenType.large:
-        return orientation == Orientation.landscape ? 2.0 : 1.7;
-    }
-  }
-
-  Widget _buildSessionMonitoringCard() {
-    final lastCheckText = _lastSessionCheck != null
-        ? _lastSessionCheck!.toString().substring(11, 19)
-        : 'Never';
-
-    final statusText = _sessionActive ? 'Active' : 'Lost';
-    final failureText = _consecutiveSessionFailures > 0
-        ? ' (${_consecutiveSessionFailures} failures)'
-        : '';
-
-    return MetricCard(
-      title: 'Session Monitor',
-      icon: _sessionActive ? Icons.verified_user : Icons.error,
-      iconColor: _sessionActive ? Colors.green : Colors.red,
-      value: statusText + failureText,
-      subtitle: 'Last Check: $lastCheckText',
-      isRealTime: true,
-    );
-  }
+  // Removed session card (text-only mode)
 
   // NEW: Movement statistics card showing adaptive update intervals
-  Widget _buildMovementStatsCard() {
-    final position = _locationService.currentPosition;
-    
-    if (position == null) {
-      return MetricCard(
-        title: 'Smart Updates',
-        icon: Icons.speed,
-        iconColor: Colors.grey,
-        value: 'NO GPS',
-        subtitle: 'Waiting for location...',
-        isRealTime: true,
-      );
-    }
-    
-    final speed = position.speed;
-    final kmh = (speed * 3.6).clamp(0.0, double.infinity);
-    final nextInterval = _calculateOptimalUpdateInterval(position);
-    
-    String movementStatus;
-    Color statusColor;
-    
-    if (speed >= 3.9) { // >14 km/h
-      movementStatus = 'FAST';
-      statusColor = Colors.red;
-    } else if (speed >= 2.0) {
-      movementStatus = 'MOVING';
-      statusColor = Colors.orange;
-    } else if (speed >= 1.0) {
-      movementStatus = 'SLOW';
-      statusColor = Colors.yellow[700]!;
-    } else {
-      movementStatus = 'STATIONARY';
-      statusColor = Colors.green;
-    }
-    
-    return MetricCard(
-      title: 'Smart Updates',
-      icon: Icons.speed,
-      iconColor: statusColor,
-      value: movementStatus,
-      subtitle: 'Next: ${nextInterval.inSeconds}s • ${kmh.toInt()} km/h',
-      isRealTime: true,
-    );
-  }
+  // Removed movement stats card (text-only mode)
 
-  Widget _buildLocationCard() {
-    if (_isLocationLoading) {
-      return Card(
-        child: Center(
-          child: SizedBox(
-            width: context.responsiveFont(32.0),
-            height: context.responsiveFont(32.0),
-            child: CircularProgressIndicator(
-              strokeWidth: context.responsiveFont(3.0),
-            ),
-          ),
-        ),
-      );
-    }
-
-    final position = _locationService.currentPosition;
-
-    if (position == null) {
-      return Card(
-        child: InkWell(
-          onTap: _refreshLocation,
-          child: Container(
-            padding: context.responsivePadding(),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.location_off,
-                  size: ResponsiveUIService.getResponsiveIconSize(
-                    context: context,
-                    baseIconSize: 24.0,
-                  ),
-                  color: Colors.red,
-                ),
-                SizedBox(height: context.responsiveFont(4.0)),
-                AutoSizeText(
-                  'Location\nUnavailable',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                  maxLines: 2,
-                  maxFontSize: getResponsiveFont(12.0),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Removed unused local variable
-
-    return MetricCard(
-      title: 'Location',
-      icon: Icons.gps_fixed_rounded,
-      iconColor: Colors.green,
-      value: 'Lat: ${position.latitude.toStringAsFixed(4)}\nLng: ${position.longitude.toStringAsFixed(4)}',
-      subtitle: 'Acc: ±${position.accuracy.toStringAsFixed(1)}m',
-      isRealTime: true,
-      onTap: _refreshLocation,
-    );
-  }
+  // Removed location card (text-only mode)
 
   Future<void> _checkForUpdates() async {
     try {

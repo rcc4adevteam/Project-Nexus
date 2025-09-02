@@ -1,6 +1,5 @@
 import 'dart:async';
-import 'dart:isolate';
-import 'package:flutter/material.dart';
+// Removed unused imports
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -128,6 +127,8 @@ class WatchdogService {
   // Show notification that app is dead
   Future<void> _showAppDeadNotification() async {
     try {
+      const String title = 'PNP Device Monitor Alert';
+      const String body = 'App monitoring stopped. Please reopen the app to continue tracking.';
       const androidDetails = AndroidNotificationDetails(
         'watchdog_channel',
         'App Watchdog',
@@ -135,6 +136,10 @@ class WatchdogService {
         importance: Importance.high,
         priority: Priority.high,
         showWhen: true,
+        styleInformation: BigTextStyleInformation(
+          body,
+          contentTitle: title,
+        ),
       );
 
       const iosDetails = DarwinNotificationDetails(
@@ -150,8 +155,8 @@ class WatchdogService {
 
       await _notifications.show(
         999, // Unique ID for watchdog notifications
-        'PNP Device Monitor Alert',
-        'App monitoring stopped. Please reopen the app to continue tracking.',
+        title,
+        body,
         notificationDetails,
       );
       

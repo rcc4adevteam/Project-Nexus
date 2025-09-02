@@ -110,7 +110,7 @@ class AppSettings {
   // Movement detection thresholds
   static const double stationarySpeedThreshold = 1.0;    // m/s (~3.6 km/h)
   static const double movingSpeedThreshold = 2.0;        // m/s (~7.2 km/h)  
-  static const double fastMovingSpeedThreshold = 8.0;    // m/s (~28.8 km/h)
+  static const double fastMovingSpeedThreshold = 2.78;   // m/s (~10.0 km/h)
   static const double movementDistanceThreshold = 10.0;  // meters
   
   // Battery optimization thresholds
