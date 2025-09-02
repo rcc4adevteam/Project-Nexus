@@ -17,6 +17,7 @@ import '../services/update_service.dart';
 import '../widgets/metric_card.dart';
 import '../widgets/auto_size_text.dart';
 import '../widgets/update_dialog.dart';
+import '../widgets/hero_header.dart';
 import '../utils/constants.dart';
 import 'login_screen.dart';
 
@@ -50,16 +51,11 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
 
   bool _isLoading = true;
   bool _isLocationLoading = true;
-  double _internetSpeed = 0.0;
-  bool _hasInitialized = false;
-  Map<String, dynamic> _watchdogStatus = {};
-  Map<String, dynamic> _wakeLockStatus = {};
-  Map<String, dynamic> _deviceStatus = {};
+  
   StreamSubscription<ConnectivityResult>? _connectivitySubscription;
   int _locationUpdatesSent = 0;
   DateTime? _lastSuccessfulUpdate;
   bool _isOnline = true;
-  bool _wasOfflineNotificationSent = false;
 
   bool _isCheckingSession = false;
   bool _sessionActive = true;
@@ -75,6 +71,37 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
   // Movement-based adaptive update system
   Position? _lastPosition;
   Duration _currentUpdateInterval = Duration(seconds: 30);
+  // Realtime console state
+  final List<String> _consoleLines = [];
+  static const int _consoleMaxLines = 60;
+  void _pushConsole(String message) {
+    final now = DateTime.now();
+    final time = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+    final line = "$time  $message";
+    if (mounted) {
+      setState(() {
+        _consoleLines.add(line);
+        if (_consoleLines.length > _consoleMaxLines) {
+          _consoleLines.removeRange(0, _consoleLines.length - _consoleMaxLines);
+        }
+      });
+    } else {
+      _consoleLines.add(line);
+      if (_consoleLines.length > _consoleMaxLines) {
+        _consoleLines.removeRange(0, _consoleLines.length - _consoleMaxLines);
+      }
+    }
+  }
+  void _seedConsole() {
+    if (_consoleLines.isNotEmpty) return;
+    _consoleLines.add(_isOnline ? 'Network: ONLINE' : 'Network: OFFLINE');
+    _consoleLines.add('Session: ' + (_sessionActive ? 'ACTIVE' : 'LOST'));
+    _consoleLines.add('Battery: ${_deviceService.batteryLevel}%');
+    _consoleLines.add('Signal: ${_deviceService.signalStatus.toUpperCase()}');
+    if (_lastSuccessfulUpdate != null) {
+      _consoleLines.add('Last update: ${_lastSuccessfulUpdate!.toString().substring(11, 19)} (sent: $_locationUpdatesSent)');
+    }
+  }
 
   @override
   void initState() {
@@ -197,6 +224,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
 
     try {
       print('Dashboard: Starting session verification with timeout... (${_lastSessionCheck!.toString().substring(11, 19)})');
+      _pushConsole('Session check started');
 
       final sessionCheckFuture = ApiService.checkStatus(
         widget.token,
@@ -219,27 +247,33 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
         if (!isStillLoggedIn && _sessionActive && mounted) {
           print('Dashboard: SESSION TERMINATED BY ANOTHER DEVICE - auto-logging out');
           _sessionActive = false;
+          _pushConsole('Session: LOST (another device)');
           await _handleAutomaticLogout();
         } else if (isStillLoggedIn && mounted) {
           if (!_sessionActive) {
             setState(() => _sessionActive = true);
             print('Dashboard: Session restored');
+            _pushConsole('Session: RESTORED');
           } else {
             print('Dashboard: Session still active');
+            _pushConsole('Session: ACTIVE');
           }
         }
       } else {
         print('Dashboard: Session check failed: ${statusResponse.message}');
         await _handleSessionCheckFailure('API error: ${statusResponse.message}');
+        _pushConsole('Session check error: ${statusResponse.message}');
       }
 
     } on TimeoutException catch (e) {
       print('Dashboard: Session check timeout: $e');
       await _handleSessionCheckFailure('Timeout: ${e.message}');
+      _pushConsole('Session check timeout');
 
     } catch (e) {
       print('Dashboard: Session verification failed: $e');
       await _handleSessionCheckFailure('Network error: $e');
+      _pushConsole('Session check failed: $e');
 
     } finally {
       _isCheckingSession = false;
@@ -544,16 +578,15 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
       _isOnline = result != ConnectivityResult.none;
 
       if (mounted) {
-        setState(() {
-          _deviceStatus = _deviceService.getDeviceStatus();
-        });
+        setState(() {});
       }
 
       if (!_isOnline && wasOnline) {
         _showConnectionLostNotification();
-        _wasOfflineNotificationSent = true;
+        _pushConsole('Network changed: OFFLINE');
       } else if (_isOnline && !wasOnline) {
         _handleConnectionRestored();
+        _pushConsole('Network changed: ONLINE');
       }
     });
   }
@@ -562,7 +595,6 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
     print('Dashboard: Connection restored, attempting to reconnect...');
 
     await _notifications.cancel(0);
-    _wasOfflineNotificationSent = false;
 
     _showConnectionRestoredNotification();
     _startAdaptivePeriodicUpdates();
@@ -627,6 +659,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
     setState(() => _isLoading = true);
 
     try {
+      _seedConsole();
       await Future.wait([
         _initializeDeviceService(),
         _initializeLocationTracking(),
@@ -639,7 +672,6 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _hasInitialized = true;
         });
       }
     } catch (e) {
@@ -661,9 +693,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
   Future<void> _initializeDeviceService() async {
     await _deviceService.initialize();
     if (mounted) {
-      setState(() {
-        _deviceStatus = _deviceService.getDeviceStatus();
-      });
+      setState(() {});
 
       if (_deviceService.isOnline) {
         print('Dashboard: Device is online, sending immediate status update to webapp');
@@ -699,9 +729,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
       await _wakeLockService.initialize();
       await _wakeLockService.forceEnableForCriticalOperation();
       if (mounted) {
-        setState(() {
-          _wakeLockStatus = _wakeLockService.getDetailedStatus();
-        });
+        setState(() {});
       }
     } catch (e) {
       Timer(const Duration(seconds: 5), () {
@@ -779,21 +807,14 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
         _watchdogService.ping();
         _maintainWakeLock();
         if (mounted) {
-          setState(() {
-            _watchdogStatus = _watchdogService.getStatus();
-            _wakeLockStatus = _wakeLockService.getDetailedStatus();
-            _deviceStatus = _deviceService.getDeviceStatus();
-          });
+          setState(() {});
         }
       },
     );
 
     _statusUpdateTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
       if (mounted) {
-        setState(() {
-          _internetSpeed = 100 + (DateTime.now().millisecondsSinceEpoch % 1000) / 10;
-          _deviceStatus = _deviceService.getDeviceStatus();
-        });
+        setState(() {});
       }
     });
 
@@ -913,6 +934,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
     if (position == null) return;
 
     try {
+      _pushConsole('Sending location update...');
       final result = await ApiService.updateLocation(
         token: widget.token,
         deploymentCode: widget.deploymentCode,
@@ -925,8 +947,10 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
         _locationUpdatesSent++;
         _lastSuccessfulUpdate = DateTime.now();
         print('Dashboard: Location update #$_locationUpdatesSent sent successfully');
+        _pushConsole('Location sent • total: $_locationUpdatesSent');
       } else {
         print('Dashboard: Location update failed: ${result.message}');
+        _pushConsole('Location failed: ${result.message}');
 
         if (result.message.contains('Session expired') || result.message.contains('logged in')) {
           _handleSessionExpired();
@@ -934,6 +958,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
       }
     } catch (e) {
       print('Dashboard: Error sending location update: $e');
+      _pushConsole('Location error: $e');
     }
   }
 
@@ -1082,12 +1107,12 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
   IconData _getBatteryIcon() {
     final level = _deviceService.batteryLevel;
     final state = _deviceService.batteryState;
-    if (state.toString().contains('charging')) return Icons.battery_charging_full;
-    if (level > 80) return Icons.battery_full;
-    if (level > 60) return Icons.battery_6_bar;
-    if (level > 40) return Icons.battery_4_bar;
-    if (level > 20) return Icons.battery_2_bar;
-    return Icons.battery_1_bar;
+    if (state.toString().contains('charging')) return Icons.battery_charging_full_rounded;
+    if (level > 80) return Icons.battery_full_rounded;
+    if (level > 60) return Icons.battery_6_bar_rounded;
+    if (level > 40) return Icons.battery_4_bar_rounded;
+    if (level > 20) return Icons.battery_2_bar_rounded;
+    return Icons.battery_1_bar_rounded;
   }
 
   Color _getSignalColor(BuildContext context) {
@@ -1149,11 +1174,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
       ], eagerError: false);
 
       if (mounted) {
-        setState(() {
-          _deviceStatus = _deviceService.getDeviceStatus();
-          _watchdogStatus = _watchdogService.getStatus();
-          _wakeLockStatus = _wakeLockService.getDetailedStatus();
-        });
+        setState(() {});
       }
 
       print('Dashboard: Pull-to-refresh completed successfully');
@@ -1208,7 +1229,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
                   SizedBox(width: context.responsiveFont(8.0)),
                   IconButton(
                     icon: Icon(
-                      Icons.system_update,
+                      Icons.system_update_rounded,
                       size: ResponsiveUIService.getResponsiveIconSize(
                         context: context,
                         baseIconSize: 24.0,
@@ -1221,8 +1242,8 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
                   IconButton(
                     icon: Icon(
                       themeProvider.themeMode == ThemeMode.dark
-                          ? Icons.light_mode
-                          : Icons.dark_mode,
+                          ? Icons.light_mode_rounded
+                          : Icons.dark_mode_rounded,
                       size: ResponsiveUIService.getResponsiveIconSize(
                         context: context,
                         baseIconSize: 24.0,
@@ -1247,6 +1268,13 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
                     )
                   : Column(
                       children: [
+                        HeroHeader(
+                          title: 'Device Monitor',
+                          subtitle: 'Deployment: ${widget.deploymentCode}',
+                          leadingIcon: Icons.shield_rounded,
+                          consoleLines: _buildRealtimeConsoleLines(),
+                        ),
+                        SizedBox(height: context.responsiveFont(8.0)),
                         Expanded(
                           child: RefreshIndicator(
                             onRefresh: _refreshDashboard,
@@ -1259,7 +1287,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
                               children: [
                                 MetricCard(
                                   title: 'Connection',
-                                  icon: _isOnline ? Icons.wifi : Icons.wifi_off,
+                                  icon: _isOnline ? Icons.wifi_rounded : Icons.wifi_off_rounded,
                                   iconColor: _isOnline ? Colors.green : Colors.red,
                                   value: _isOnline ? 'Online' : 'Offline',
                                   subtitle: _deviceService.getConnectivityDescription(),
@@ -1274,7 +1302,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
                                 ),
                                 MetricCard(
                                   title: 'Signal Status', // FIXED: Changed from 'Signal Strength' to 'Signal Status'
-                                  icon: Icons.signal_cellular_alt,
+                                  icon: Icons.signal_cellular_alt_rounded,
                                   iconColor: _getSignalColor(context),
                                   value: _deviceService.signalStatus.toUpperCase(),
                                   subtitle: '',
@@ -1282,7 +1310,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
                                 ),
                                 MetricCard(
                                   title: 'Last Update',
-                                  icon: Icons.update,
+                                  icon: Icons.update_rounded,
                                   iconColor: Theme.of(context).colorScheme.primary,
                                   value: _lastSuccessfulUpdate?.toString().substring(11, 19) ?? "Never",
                                   subtitle: 'Updates Sent: $_locationUpdatesSent',
@@ -1348,6 +1376,13 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
         ),
       ),
     );
+  }
+
+  List<String> _buildRealtimeConsoleLines() {
+    if (_consoleLines.isEmpty) {
+      _seedConsole();
+    }
+    return _consoleLines;
   }
 
   double _calculateAspectRatio() {
@@ -1482,11 +1517,11 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
       );
     }
 
-    final speedKmh = (position.speed * 3.6).clamp(0.0, double.infinity);
+    // Removed unused local variable
 
     return MetricCard(
       title: 'Location',
-      icon: Icons.gps_fixed,
+      icon: Icons.gps_fixed_rounded,
       iconColor: Colors.green,
       value: 'Lat: ${position.latitude.toStringAsFixed(4)}\nLng: ${position.longitude.toStringAsFixed(4)}',
       subtitle: 'Acc: ±${position.accuracy.toStringAsFixed(1)}m',

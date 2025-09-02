@@ -30,22 +30,28 @@ class MetricCard extends StatelessWidget {
     
     return Card(
       margin: context.responsiveMargin(4.0),
-      elevation: isSessionCard ? 6.0 : 4.0,
+      elevation: isSessionCard ? 8.0 : 5.0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12.0),
-        child: Container(
-          decoration: isSessionCard 
-              ? BoxDecoration(
-                  borderRadius: BorderRadius.circular(12.0),
-                  border: Border.all(
-                    color: iconColor.withOpacity(0.3),
-                    width: 1.5,
-                  ),
-                )
-              : null,
+        borderRadius: BorderRadius.circular(16.0),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                iconColor.withOpacity(isSessionCard ? 0.08 : 0.04),
+                iconColor.withOpacity(isSessionCard ? 0.02 : 0.01),
+              ],
+            ),
+          ),
           child: Padding(
-            padding: context.responsivePadding(8.0),
+            padding: context.responsivePadding(12.0),
             child: _buildCardContent(context, isSessionCard, isSignalStatusCard),
           ),
         ),
@@ -78,21 +84,19 @@ class MetricCard extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      padding: EdgeInsets.all(context.responsiveFont(4.0)),
+      padding: EdgeInsets.all(context.responsiveFont(6.0)),
       decoration: BoxDecoration(
-        color: iconColor.withOpacity(isSessionCard ? 0.15 : 0.1),
-        borderRadius: BorderRadius.circular(context.responsiveFont(8.0)),
-        border: isSessionCard 
-            ? Border.all(
-                color: iconColor.withOpacity(0.3),
-                width: 1.0,
-              )
-            : null,
+        color: iconColor.withOpacity(isSessionCard ? 0.18 : 0.12),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: iconColor.withOpacity(0.25),
+          width: 1.0,
+        ),
       ),
       child: Icon(
         icon,
         color: iconColor,
-        size: context.responsiveFont(18.0),
+        size: context.responsiveFont(20.0),
       ),
     );
   }
@@ -122,7 +126,8 @@ class MetricCard extends StatelessWidget {
           child: AutoSizeText(
             title,
             style: TextStyle(
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.2,
               color: isSessionCard ? iconColor : null,
             ),
             maxLines: 1,
@@ -148,14 +153,9 @@ class MetricCard extends StatelessWidget {
         vertical: context.responsiveFont(1.0),
       ),
       decoration: BoxDecoration(
-        color: badgeColor.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(context.responsiveFont(4.0)),
-        border: isSessionCard 
-            ? Border.all(
-                color: iconColor.withOpacity(0.4),
-                width: 0.8,
-              )
-            : null,
+        color: badgeColor.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(context.responsiveFont(6.0)),
+        border: Border.all(color: badgeColor.withOpacity(0.3), width: 0.8),
       ),
       child: AutoSizeText(
         text,
@@ -175,18 +175,19 @@ class MetricCard extends StatelessWidget {
     final isLongText = value.length > 15;
     
     double baseFontSize;
-          if (isSignalStatusCard) {
+    if (isSignalStatusCard) {
       baseFontSize = 14.0;
     } else if (isLongText) {
-      baseFontSize = 10.0;
+      baseFontSize = 11.0;
     } else {
-      baseFontSize = 12.0;
+      baseFontSize = 13.0;
     }
 
     return AutoSizeText(
       value,
       style: TextStyle(
-        fontWeight: FontWeight.bold,
+        fontWeight: FontWeight.w800,
+        height: 1.15,
         color: isSessionCard ? iconColor : null,
       ),
       maxLines: isLongText ? 2 : 1,
@@ -202,8 +203,8 @@ class MetricCard extends StatelessWidget {
       style: TextStyle(
         color: isSessionCard 
             ? iconColor.withOpacity(0.7)
-            : Colors.grey[600],
-        fontWeight: isSessionCard ? FontWeight.w500 : FontWeight.normal,
+            : Colors.grey[700],
+        fontWeight: isSessionCard ? FontWeight.w600 : FontWeight.w400,
       ),
       maxLines: 2,
       minFontSize: context.responsiveFont(5.0),
