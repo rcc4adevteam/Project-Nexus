@@ -1,0 +1,73 @@
+name: project_nexus
+description: "A new Flutter project."
+publish_to: 'none'
+version: 2.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Toggle for night mode
+  provider: ^6.1.2
+
+  # UPLOAD QR
+  file_picker: ^8.0.0
+
+  # Core Functionality
+  http: ^1.1.0
+  shared_preferences: ^2.2.2
+  permission_handler: ^11.0.1
+  
+  # Security & Encryption
+  flutter_secure_storage: ^9.0.0
+  crypto: ^3.0.3
+
+  # Device & Location
+  geolocator: ^10.1.0
+  device_info_plus: ^9.1.0
+  package_info_plus: ^4.2.0
+  connectivity_plus: ^5.0.2
+  battery_plus: ^4.0.2
+  network_info_plus: ^6.1.4
+  path_provider: ^2.1.1
+
+  # Background & Power Management
+  flutter_background_service: ^5.0.5
+  wakelock_plus: ^1.1.4
+
+  # UI & Features
+  cupertino_icons: ^1.0.8
+  mobile_scanner: ^5.1.1
+  flutter_local_notifications: ^17.1.2
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.0
+  app_settings: ^5.1.1
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/pnp_logo.png
+    - assets/images/images.png
+    - assets/images/nexus_splashscreen_version1.2.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/nexus_icon_logo_version1.3.png"
+  min_sdk_android: 21
+
+flutter_native_splash:
+  color: "#000000" # Background color
+  image: assets/images/nexus_splashscreen_version1.2.png # Your logo
+  android: true
+  ios: true
+  web: false

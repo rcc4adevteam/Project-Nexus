@@ -1,0 +1,94 @@
+plugins {
+    id("com.android.application")
+    id("kotlin-android")
+    id("dev.flutter.flutter-gradle-plugin")
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    namespace "com.example.project_nexus"
+    compileSdk flutter.compileSdkVersion
+    ndkVersion flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+        // Enable core library desugaring for better compatibility
+        coreLibraryDesugaringEnabled true
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+
+    defaultConfig {
+        applicationId "com.example.project_nexus"
+        minSdkVersion flutter.minSdkVersion // Android 5.0 - Good for low-end devices
+        targetSdk 34 // Latest stable target
+        versionCode flutter.versionCode
+        versionName flutter.versionName
+        
+        // Optimizations for low-end devices
+        multiDexEnabled true
+        vectorDrawables.useSupportLibrary = true
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+                storePassword keystoreProperties['storePassword']
+            } else {
+                // Fallback to debug signing if no keystore properties
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+                storeFile file('debug.keystore')
+                storePassword 'android'
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            shrinkResources false // Disable resource shrinking for better compatibility
+            minifyEnabled false // Disable minification for better compatibility
+            
+            // Optimizations for low-end devices
+            debuggable false
+            jniDebuggable false
+            renderscriptDebuggable false
+            pseudoLocalesEnabled false
+            zipAlignEnabled true
+        }
+        
+        debug {
+            // Debug optimizations for testing on low-end devices
+            debuggable true
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+    
+    // Additional optimizations
+    dexOptions {
+        javaMaxHeapSize "2g"
+        preDexLibraries = false
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
+    implementation 'androidx.multidex:multidex:2.0.1' // Support for low-end devices
+}
+
+flutter {
+    source = "../.."
+}

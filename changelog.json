@@ -1,0 +1,12 @@
+{
+  "android": {
+    "latestVersion": "4.1.0",
+    "downloadUrl": "https://pro4a-1key.com/nexus/downloads/app-v4.1.0.apk",
+    "changelog": "Version 4.1.0 - Major Update\n\n• New Update Button with automatic version checking\n• Enhanced location monitoring and sync\n• Improved battery optimization\n• Bug fixes and performance improvements\n• Better error handling and user feedback",
+    "isRequired": false,
+    "releaseDate": "2024-01-20T00:00:00Z",
+    "fileSize": "40.0 MB",
+    "minAndroidVersion": "21",
+    "buildNumber": "400"
+  }
+}
