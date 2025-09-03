@@ -212,11 +212,11 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (scannedCode != null && mounted) {
-      // Clean and extract plain text value
-      final cleanedCode = _extractPlainTextFromQR(scannedCode);
+      // Extract deployment code from QR (supports JSON and plain text)
+      final extractedDeploymentCode = _extractDeploymentCodeFromQR(scannedCode).trim();
       
       setState(() {
-        _deploymentCodeController.text = cleanedCode.trim();
+        _deploymentCodeController.text = extractedDeploymentCode;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -225,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
       // Trigger validation for the scanned deployment code
-      _onDeploymentCodeChanged(cleanedCode.trim());
+      _onDeploymentCodeChanged(extractedDeploymentCode);
     }
   }
 
@@ -249,6 +249,39 @@ class _LoginScreenState extends State<LoginScreen> {
     print('QR Scanner: Original data: "$qrData"');
     print('QR Scanner: Cleaned data: "$cleanedData"');
     
+    return cleanedData;
+  }
+
+  // Helper function to extract deployment code from QR data (handles JSON or plain text)
+  String _extractDeploymentCodeFromQR(String qrData) {
+    final cleanedData = _extractPlainTextFromQR(qrData);
+    
+    // 1) Try JSON parse first
+    try {
+      final decoded = json.decode(cleanedData);
+      if (decoded is Map && decoded['deploymentCode'] is String) {
+        return decoded['deploymentCode'] as String;
+      }
+    } catch (_) {
+      // Ignore and fall through to regex/heuristics
+    }
+    
+    // 2) Handle malformed JSON by regex
+    final regex = RegExp(r'"deploymentCode"\s*:\s*"([^"\\]+)"');
+    final match = regex.firstMatch(cleanedData);
+    if (match != null && match.groupCount >= 1) {
+      return match.group(1) ?? cleanedData;
+    }
+    
+    // 3) If token|deployment format, take the right side as deployment
+    if (cleanedData.contains('|')) {
+      final parts = cleanedData.split('|');
+      if (parts.length >= 2) {
+        return parts.last.trim();
+      }
+    }
+    
+    // 4) Default: assume the cleaned string IS the deployment code
     return cleanedData;
   }
 
