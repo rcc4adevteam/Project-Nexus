@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 import '../services/background_service.dart';
 import '../services/watchdog_service.dart';
 import '../services/wake_lock_service.dart';
+import '../services/network_connectivity_service.dart';
 import '../services/theme_provider.dart';
 import '../services/responsive_ui_service.dart';
 import '../services/update_service.dart';
@@ -39,6 +40,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
   final _deviceService = DeviceService();
   final _watchdogService = WatchdogService();
   final _wakeLockService = WakeLockService();
+  final _networkService = NetworkConnectivityService();
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
 
   Timer? _apiUpdateTimer;
@@ -230,6 +232,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
     _locationService.dispose();
     _deviceService.dispose();
     _watchdogService.stopWatchdog();
+    _networkService.dispose();
     _connectivitySubscription?.cancel();
     _locationServiceStatusSubscription?.cancel();
     super.dispose();
@@ -352,6 +355,15 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
       print('Dashboard: Starting session verification with timeout... (${_lastSessionCheck!.toString().substring(11, 19)})');
       _pushConsole('Session check started');
 
+      // Check network connectivity before attempting server call
+      final isOnline = await _networkService.checkConnectivity();
+      if (!isOnline) {
+        print('Dashboard: Device is offline, skipping session verification');
+        _pushConsole('Session: OFFLINE MODE (skipping server check)');
+        _consecutiveSessionFailures = 0; // Reset failures when offline
+        return; // Skip the server call entirely
+      }
+
       final sessionCheckFuture = ApiService.checkStatus(
         widget.token,
         widget.deploymentCode
@@ -407,6 +419,14 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
   }
 
   Future<void> _handleSessionCheckFailure(String reason) async {
+    // Don't count network errors as session failures
+    if (reason.contains('Timeout') || reason.contains('Network error')) {
+      print('Dashboard: Network issue detected, staying in offline mode');
+      _pushConsole('Session: NETWORK ISSUE (offline mode)');
+      return; // Don't increment failure counter for network issues
+    }
+    
+    // Only count actual session/API errors
     _consecutiveSessionFailures++;
     print('Dashboard: Session check failure #$_consecutiveSessionFailures: $reason');
 
@@ -653,25 +673,40 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
   }
 
   Widget _buildSessionStatusIndicator() {
-    final color = _sessionActive ? Colors.green : Colors.red;
+    Color color;
+    String tooltip;
+    
+    if (!_isOnline) {
+      color = Colors.orange;
+      tooltip = 'Offline Mode - App will sync when connection is restored';
+    } else if (_sessionActive) {
+      color = Colors.green;
+      tooltip = 'Session Active - Online';
+    } else {
+      color = Colors.red;
+      tooltip = 'Session Lost';
+    }
 
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: context.responsiveFont(8.0),
-        vertical: context.responsiveFont(4.0),
-      ),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(context.responsiveFont(12.0)),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
+    return Tooltip(
+      message: tooltip,
       child: Container(
-        width: context.responsiveFont(10.0),
-        height: context.responsiveFont(10.0),
+        padding: EdgeInsets.symmetric(
+          horizontal: context.responsiveFont(8.0),
+          vertical: context.responsiveFont(4.0),
+        ),
         decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(context.responsiveFont(12.0)),
           border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Container(
+          width: context.responsiveFont(10.0),
+          height: context.responsiveFont(10.0),
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withOpacity(0.3)),
+          ),
         ),
       ),
     );
@@ -799,6 +834,7 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
     try {
       _seedConsole();
       await Future.wait([
+        _initializeNetworkService(),
         _initializeDeviceService(),
         _initializeLocationTracking(),
         _initializeWatchdog(),
@@ -826,6 +862,11 @@ class _DashboardScreenState extends State<DashboardScreen> with ResponsiveStateM
         );
       }
     }
+  }
+
+  Future<void> _initializeNetworkService() async {
+    await _networkService.initialize();
+    print('Dashboard: Network service initialized');
   }
 
   Future<void> _initializeDeviceService() async {

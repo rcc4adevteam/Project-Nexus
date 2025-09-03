@@ -583,6 +583,12 @@ Future<void> _checkSessionStatus() async {
       return;
     }
 
+    // Check network connectivity before attempting server call
+    if (!_isOnline) {
+      print('BackgroundService: Device is offline, skipping session verification');
+      return; // Skip the server call entirely when offline
+    }
+
     print('BackgroundService: Checking session status... (${_lastSessionCheck!.toString().substring(11, 19)})');
 
     // Add timeout to session check
